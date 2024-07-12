@@ -1,3 +1,6 @@
 env/
+images/
+.DS_Store
 **/__pycache__/
-scraped_products.json
+scraped_products_v1.json
+scraped_products_v2.json

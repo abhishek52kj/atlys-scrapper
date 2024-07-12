@@ -71,7 +71,12 @@ class Scraper:
                 price = "0.0"
 
             try:
-                image_url = element.find('img', class_='attachment-woocommerce_thumbnail')['src']
+                img_tag = element.find('img', class_='attachment-woocommerce_thumbnail')
+                image_url = img_tag.get('data-src') or img_tag.get('src')
+                if image_url and image_url.startswith('//'):
+                    image_url = 'https:' + image_url
+                elif image_url and not image_url.startswith('http'):
+                    image_url = 'https://' + image_url.lstrip('/')
             except AttributeError:
                 image_url = "No image found"
 
