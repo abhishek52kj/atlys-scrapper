@@ -1,48 +1,46 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Header
-from typing import Optional
+from fastapi import FastAPI, Depends
 from pydantic import BaseModel
-import app.scraper as scraper_module
+from typing import List, Optional
+import app.scraper_v1 as scraper_v1
+import app.scraper_v2 as scraper_v2
 import app.storage as storage_module
 
 app = FastAPI()
 
-# Authentication Dependency
-def verify_token(authorization: str = Header(...)):
-    if authorization != "Bearer static_token":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
-        )
-
-class ScrapingRequest(BaseModel):
-    base_url: str
+class ScrapeRequest(BaseModel):
     page_limit: Optional[int] = 5
     proxy: Optional[str] = None
 
-@app.post("/scrape", dependencies=[Depends(verify_token)])
-async def scrape(scraping_request: ScrapingRequest):
-    scraper = scraper_module.Scraper(
-        base_url=scraping_request.base_url,
-        page_limit=scraping_request.page_limit,
-        proxy=scraping_request.proxy
+@app.post("/v1/scrape")
+async def scrape_v1(request: ScrapeRequest):
+    scraper = scraper_v1.Scraper(
+        base_url="https://dentalstall.com/shop/",
+        page_limit=request.page_limit,
+        proxy=request.proxy
     )
     products = await scraper.scrape()
+    storage_module.save_products(products, 'scraped_products_v1.json')
+    product_count = len(products)
+    print(f"Scraping completed for v1. Products scraped: {product_count}, File: scraped_products_v1.json")
+    return products
 
-    # Save the scraped products to a JSON file
-    storage = storage_module.JSONStorage(file_path='scraped_products.json')
-    storage.save_products(products)
-
+@app.post("/v2/scrape")
+async def scrape_v2(request: ScrapeRequest):
+    scraper = scraper_v2.Scraper(
+        base_url="https://dentalstall.com/shop/",
+        page_limit=request.page_limit,
+        proxy=request.proxy
+    )
+    products = await scraper.scrape()
+    storage_module.save_products(products, 'scraped_products_v2.json')
+    product_count = len(products)
+    print(f"Scraping completed for v2. Products scraped: {product_count}, File: scraped_products_v2.json")
     return products
 
 @app.get("/")
 def read_root():
-    curl_command = (
-        "curl -X POST http://127.0.0.1:8000/scrape "
-        "-H \"Authorization: Bearer static_token\" "
-        "-H \"Content-Type: application/json\" "
-        "-d '{\"base_url\": \"https://dentalstall.com/shop/\", \"page_limit\": 5, \"proxy\": null}'"
-    )
     return {
         "message": "Welcome to Atlys Scraper",
-        "scrape API endpoint": curl_command,
+        "scrape API endpoint v1": "/v1/scrape",
+        "scrape API endpoint v2": "/v2/scrape"
     }

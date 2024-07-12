@@ -1,122 +1,110 @@
 # Atlys Scraper
 
-Welcome to Atlys Scraper, a Python FastAPI project that automates the scraping of product information from the specified target website.
+Atlys Scraper is a Python-based web scraping tool developed using the FastAPI framework. It scrapes product information from the target website and stores it locally. The tool supports two versions of the API, each with different scraping techniques and capabilities.
 
 ## Features
 
-- Scrapes product name, price, and image(link) from each page of the catalog.
-- Supports optional settings for limiting the number of pages to scrape and using a proxy.
-- Stores scraped information in a JSON file.
-- Notifies the number of products processed.
-- Simple authentication using a static token.
-- Retry mechanism for failed requests.
-- Caching of scraping results using Redis to avoid redundant updates.
+- **Scrape Product Information:** Extract product name, price, and image from each page of the catalogue.
+- **Limit Pages:** Option to limit the number of pages to scrape.
+- **Proxy Support:** Option to use a proxy for scraping.
+- **Data Storage:** Store scraped data in local JSON files (`scraped_products_v1.json` and `scraped_products_v2.json`).
+- **Notification:** Prints scraping status and file details to the console.
+- **Lazy-loaded Image Handling:** Properly handles lazy-loaded images.
+- **Versioning:** Two versions of the API for different scraping techniques.
 
 ## Requirements
 
 - Python 3.8+
-- Redis
+- Redis (for caching purposes)
 
 ## Installation
 
-1. **Clone the repository**:
-
-    ```bash
-    git clone https://github.com/your-username/atlys_scraper.git
+1. Clone the repository:
+    ```sh
+    git clone https://github.com/yourusername/atlys_scraper.git
     cd atlys_scraper
     ```
 
-2. **Create and activate a virtual environment**:
-
-    On macOS/Linux:
-    ```bash
+2. Create and activate a virtual environment:
+    ```sh
     python3 -m venv env
     source env/bin/activate
     ```
 
-    On Windows:
-    ```bash
-    python -m venv env
-    .\env\Scripts\activate
-    ```
-
-3. **Install the dependencies**:
-
-    ```bash
+3. Install the required dependencies:
+    ```sh
     pip install -r requirements.txt
     ```
 
-4. **Ensure Redis is running**:
-
-    You can start Redis with the following command if you have it installed locally:
-    ```bash
+4. Ensure Redis is running on your machine:
+    ```sh
     redis-server
     ```
 
-    If you don't have Redis installed, you can follow the instructions [here](https://redis.io/download) to install it.
-
 ## Usage
 
-1. **Run the FastAPI server**:
-
-    ```bash
+1. Start the FastAPI server:
+    ```sh
     uvicorn app.main:app --reload
     ```
 
-2. **API Endpoints**:
+2. Use the following endpoints to scrape data:
 
-    - **Root Endpoint**:
-        ```http
-        GET http://127.0.0.1:8000/
-        ```
-        - Response:
-            ```json
-            {
-                "message": "Welcome to Atlys Scraper",
-                "scrape API endpoint": "curl -X POST http://127.0.0.1:8000/scrape -H \"Authorization: Bearer static_token\" -H \"Content-Type: application/json\" -d '{\"base_url\": \"https://dentalstall.com/shop/\", \"page_limit\": 5, \"proxy\": null}'"
-            }
-            ```
+### Version 1 API
 
-    - **Scrape Endpoint**:
-        ```http
-        POST http://127.0.0.1:8000/scrape
-        ```
-        - Headers:
-            ```json
-            {
-                "Authorization": "Bearer static_token",
-                "Content-Type": "application/json"
-            }
-            ```
-        - Body:
-            ```json
-            {
-                "base_url": "https://dentalstall.com/shop/",
-                "page_limit": 5,
-                "proxy": null
-            }
-            ```
-        - Response:
-            ```json
-            [
-                {
-                    "product_title": "Product Name",
-                    "product_price": 100.0,
-                    "path_to_image": "https://example.com/image.jpg"
-                },
-                ...
-            ]
-            ```
+- **Endpoint:** `/v1/scrape`
+- **Method:** `POST`
+- **Request Body:**
+    ```json
+    {
+      "page_limit": 5,
+      "proxy": "http://yourproxy.com"
+    }
+    ```
 
-## Project Structure
+- **Response:** JSON array of products scraped.
+
+- **Example cURL Command:**
+    ```sh
+    curl -X POST "http://127.0.0.1:8000/v1/scrape" -H "Content-Type: application/json" -d '{"page_limit": 5, "proxy": "http://yourproxy.com"}'
+    ```
+
+### Version 2 API
+
+- **Endpoint:** `/v2/scrape`
+- **Method:** `POST`
+- **Request Body:**
+    ```json
+    {
+      "page_limit": 5,
+      "proxy": "http://yourproxy.com"
+    }
+    ```
+
+- **Response:** JSON array of products scraped.
+
+- **Example cURL Command:**
+    ```sh
+    curl -X POST "http://127.0.0.1:8000/v2/scrape" -H "Content-Type: application/json" -d '{"page_limit": 5, "proxy": "http://yourproxy.com"}'
+    ```
+
+3. Check the console for the scraping status and file details.
+
+## File Structure
 
 ```plaintext
 atlys_scraper/
+│
 ├── app/
 │   ├── main.py
-│   ├── scraper.py
-│   └── storage.py
-├── env/
-├── .gitignore
-├── README.md
-└── requirements.txt
+│   ├── scraper_v1.py
+│   ├── scraper_v2.py
+│   ├── storage.py
+│
+├── images/                   # Directory where images are saved ( will be created )
+│
+├── scraped_products_v1.json  # Scraped data for v1 ( will be created )
+├── scraped_products_v2.json  # Scraped data for v2 ( will be created )
+│
+├── requirements.txt          # List of dependencies
+├── README.md                 # Project documentation

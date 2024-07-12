@@ -13,14 +13,12 @@ class Product(BaseModel):
 def retry(retries: int = 3, delay: int = 2):
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            for i in range(retries):
+            for _ in range(retries):
                 try:
                     return await func(*args, **kwargs)
                 except (httpx.HTTPStatusError, httpx.RequestError, httpx.ReadTimeout) as e:
-                    if i < retries - 1:
-                        await asyncio.sleep(delay)
-                    else:
-                        raise e
+                    await asyncio.sleep(delay)
+            raise e
         return wrapper
     return decorator
 
@@ -71,7 +69,12 @@ class Scraper:
                 price = "0.0"
 
             try:
-                image_url = element.find('img', class_='attachment-woocommerce_thumbnail')['src']
+                img_tag = element.find('img', class_='attachment-woocommerce_thumbnail')
+                image_url = img_tag.get('data-src') or img_tag.get('src')
+                if image_url.startswith('//'):
+                    image_url = 'https:' + image_url
+                elif not image_url.startswith('http'):
+                    image_url = 'https://' + image_url.lstrip('/')
             except AttributeError:
                 image_url = "No image found"
 
