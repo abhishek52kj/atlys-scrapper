@@ -21,7 +21,7 @@ Atlys Scraper is a Python-based web scraping tool developed using the FastAPI fr
 
 1. Clone the repository:
     ```sh
-    git clone https://github.com/yourusername/atlys_scraper.git
+    git clone https://github.com/abhishek52kj/atlys_scraper.git
     cd atlys_scraper
     ```
 
@@ -58,7 +58,7 @@ Atlys Scraper is a Python-based web scraping tool developed using the FastAPI fr
     ```json
     {
       "page_limit": 5,
-      "proxy": "http://yourproxy.com"
+      "proxy": null
     }
     ```
 
@@ -66,7 +66,7 @@ Atlys Scraper is a Python-based web scraping tool developed using the FastAPI fr
 
 - **Example cURL Command:**
     ```sh
-    curl -X POST "http://127.0.0.1:8000/v1/scrape" -H "Content-Type: application/json" -d '{"page_limit": 5, "proxy": "http://yourproxy.com"}'
+    curl -X POST "http://127.0.0.1:8000/v1/scrape" -H "Content-Type: application/json" -d '{"page_limit": 5, "proxy": null}'
     ```
 
 ### Version 2 API
@@ -77,7 +77,7 @@ Atlys Scraper is a Python-based web scraping tool developed using the FastAPI fr
     ```json
     {
       "page_limit": 5,
-      "proxy": "http://yourproxy.com"
+      "proxy": null
     }
     ```
 
@@ -85,7 +85,7 @@ Atlys Scraper is a Python-based web scraping tool developed using the FastAPI fr
 
 - **Example cURL Command:**
     ```sh
-    curl -X POST "http://127.0.0.1:8000/v2/scrape" -H "Content-Type: application/json" -d '{"page_limit": 5, "proxy": "http://yourproxy.com"}'
+    curl -X POST "http://127.0.0.1:8000/v2/scrape" -H "Content-Type: application/json" -d '{"page_limit": 5, "proxy": null}'
     ```
 
 3. Check the console for the scraping status and file details.
@@ -100,6 +100,7 @@ atlys_scraper/
 │   ├── scraper_v1.py
 │   ├── scraper_v2.py
 │   ├── storage.py
+│   ├── rate_limiter.py
 │
 ├── images/                   # Directory where images are saved ( will be created )
 │
@@ -108,3 +109,5 @@ atlys_scraper/
 │
 ├── requirements.txt          # List of dependencies
 ├── README.md                 # Project documentation
+├── Dockerfile
+├── docker-compose.yml

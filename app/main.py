@@ -23,8 +23,8 @@ app.add_middleware(RateLimiterMiddleware, max_requests=100, window_size=60)
 def read_root():
     return {
         "message": "Welcome to Atlys Scraper",
-        "scrape API endpoint v1": "http://localhost:8000/v1/scrape",
-        "scrape API endpoint v2": "http://localhost:8000/v2/scrape"
+        "scrape API endpoint v1": 'curl -X POST "http://127.0.0.1:8000/v1/scrape" -H "Content-Type: application/json" -d \'{"page_limit": 5, "proxy": null}\'',
+        "scrape API endpoint v2": 'curl -X POST "http://127.0.0.1:8000/v2/scrape" -H "Content-Type: application/json" -d \'{"page_limit": 5, "proxy": null}\''
     }
 
 @app.post("/v1/scrape")

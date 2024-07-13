@@ -3,7 +3,12 @@ from bs4 import BeautifulSoup
 from pydantic import BaseModel
 from typing import List, Optional
 import asyncio
+import aiofiles
+import os
 import redis
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Product(BaseModel):
     product_title: str
@@ -13,12 +18,20 @@ class Product(BaseModel):
 def retry(retries: int = 3, delay: int = 2):
     def decorator(func):
         async def wrapper(*args, **kwargs):
-            for _ in range(retries):
+            for i in range(retries):
                 try:
                     return await func(*args, **kwargs)
-                except (httpx.HTTPStatusError, httpx.RequestError, httpx.ReadTimeout) as e:
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"HTTP error: {e.response.status_code} - {e.request.url}")
+                except httpx.RequestError as e:
+                    logger.error(f"Request error: {e}")
+                except httpx.ReadTimeout as e:
+                    logger.error(f"Read timeout: {e}")
+                except Exception as e:
+                    logger.error(f"Unexpected error: {e}")
+                if i < retries - 1:
                     await asyncio.sleep(delay)
-            raise e
+            raise Exception(f"Failed after {retries} retries")
         return wrapper
     return decorator
 
@@ -28,7 +41,7 @@ class Scraper:
         self.page_limit = page_limit
         self.proxy = proxy
         self.client = httpx.AsyncClient(proxies=proxy, timeout=10.0, follow_redirects=True)
-        self.redis_client = redis.Redis(host='localhost', port=6379, db=0)
+        self.redis_client = redis.Redis(host='redis', port=6379, db=0)  # Updated Redis host
 
     @retry(retries=3, delay=2)
     async def fetch_page(self, page_number: int) -> str:
@@ -37,59 +50,50 @@ class Scraper:
         response.raise_for_status()
         return response.text
 
+    @retry(retries=3, delay=2)
+    async def fetch_product_details(self, url: str) -> Product:
+        response = await self.client.get(url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.find('h1', class_='product_title entry-title').get_text(strip=True)
+        price = soup.find('bdi').get_text(strip=True).replace('₹', '').replace(',', '')
+        image_url = soup.find('img', class_='wp-post-image')['src']
+        image_path = await self.download_image(image_url, title)
+        return Product(
+            product_title=title,
+            product_price=float(price),
+            path_to_image=image_path
+        )
+
+    @retry(retries=3, delay=2)
+    async def download_image(self, url: str, title: str) -> str:
+        response = await self.client.get(url)
+        response.raise_for_status()
+        image_extension = url.split('.')[-1]
+        safe_title = title.replace(' ', '_').replace('/', '_').replace('\\', '_')
+        file_path = f"images/{safe_title}.{image_extension}"
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        async with aiofiles.open(file_path, 'wb') as f:
+            await f.write(response.content)
+        return file_path
+
     async def scrape(self) -> List[Product]:
         products = []
         for page_number in range(1, self.page_limit + 1):
             page_content = await self.fetch_page(page_number)
             soup = BeautifulSoup(page_content, 'html.parser')
-            products.extend(self.parse_products(soup))
-        await self.client.aclose()
-        return products
-
-    def parse_products(self, soup: BeautifulSoup) -> List[Product]:
-        product_elements = soup.find_all('div', class_='product-inner')
-        products = []
-        for element in product_elements:
-            try:
-                title = element.find('h2', class_='woo-loop-product__title').get_text(strip=True)
-            except AttributeError:
-                title = "No title found"
-
-            try:
-                price_ins = element.find('span', class_='price').find('ins')
-                if price_ins:
-                    price = price_ins.find('span', class_='woocommerce-Price-amount').get_text(strip=True).replace('₹', '').replace(',', '')
+            product_elements = soup.find_all('div', class_='product-inner')
+            tasks = [self.fetch_product_details(e.find('a')['href']) for e in product_elements]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Product):
+                    cached_price = self.redis_client.get(result.product_title)
+                    if cached_price is not None:
+                        cached_price = cached_price.decode('utf-8')
+                    if cached_price is None or float(cached_price) != result.product_price:
+                        self.redis_client.set(result.product_title, result.product_price)
+                        products.append(result)
                 else:
-                    price_del = element.find('span', class_='price').find('del')
-                    if price_del:
-                        price = price_del.find('span', class_='woocommerce-Price-amount').get_text(strip=True).replace('₹', '').replace(',', '')
-                    else:
-                        price = element.find('span', class_='price').find('span', class_='woocommerce-Price-amount').get_text(strip=True).replace('₹', '').replace(',', '')
-            except AttributeError:
-                price = "0.0"
-
-            try:
-                img_tag = element.find('img', class_='attachment-woocommerce_thumbnail')
-                image_url = img_tag.get('data-src') or img_tag.get('src')
-                if image_url.startswith('//'):
-                    image_url = 'https:' + image_url
-                elif not image_url.startswith('http'):
-                    image_url = 'https://' + image_url.lstrip('/')
-            except AttributeError:
-                image_url = "No image found"
-
-            product = Product(
-                product_title=title,
-                product_price=float(price),
-                path_to_image=image_url
-            )
-
-            cached_price = self.redis_client.get(product.product_title)
-            if cached_price is not None:
-                cached_price = cached_price.decode('utf-8')
-
-            if cached_price is None or float(cached_price) != product.product_price:
-                self.redis_client.set(product.product_title, product.product_price)
-                products.append(product)
-
+                    logger.error(f"Failed to fetch product details: {result}")
+        await self.client.aclose()
         return products
