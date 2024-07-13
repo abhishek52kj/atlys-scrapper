@@ -1,6 +1,8 @@
 env/
 images/
 .DS_Store
+.vscode
 **/__pycache__/
+scraped_products_v2.db
 scraped_products_v1.json
 scraped_products_v2.json
